@@ -1,6 +1,7 @@
 #!/bin/bash
 
 source /etc/ssh-notify.conf
+
 # Config {
 
 DATE=$(date +"%d/%m/%Y")
