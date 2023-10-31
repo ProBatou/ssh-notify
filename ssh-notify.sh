@@ -16,4 +16,4 @@ MESSAGE="👤 Utilisateur: $(whoami) "$'\n'"🖥 Host: $(hostname) "$'\n'"🌐 I
     -u $USERNAME:$PASSWORD \
     -H "Title: SSH connection" \
     -d " $MESSAGE" \
-    $NTFY/$TOPIC > /dev/null
+    $NTFY/$TOPIC > /dev/null &
