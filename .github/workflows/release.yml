@@ -1,0 +1,76 @@
+name: Automatic Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ssh-notify.sh'
+      - 'ssh-notify.conf.template'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ssh-notify-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute next version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          latest_tag="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+
+          if [[ -z "$latest_tag" ]]; then
+            next_version="v1.0.0"
+          else
+            version="${latest_tag#v}"
+            IFS='.' read -r major minor patch <<< "$version"
+
+            # A functional change creates a new minor release by default.
+            # Explicit breaking-change markers create a major release.
+            commit_message="$(git log -1 --pretty=%B)"
+            if grep -Eqi '(^|[[:space:]])BREAKING CHANGE:|^[a-zA-Z]+(\([^)]*\))?!:|\[major\]' <<< "$commit_message"; then
+              major=$((major + 1))
+              minor=0
+              patch=0
+            elif grep -Eqi '(^|[[:space:]])fix(\([^)]*\))?:|\[patch\]' <<< "$commit_message"; then
+              patch=$((patch + 1))
+            else
+              minor=$((minor + 1))
+              patch=0
+            fi
+
+            next_version="v${major}.${minor}.${patch}"
+          fi
+
+          echo "version=$next_version" >> "$GITHUB_OUTPUT"
+          echo "Next release: $next_version"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh release create "$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --generate-notes \
+            ssh-notify.sh \
+            ssh-notify.conf.template
