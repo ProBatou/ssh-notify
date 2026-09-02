@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Release-managed by GitHub Actions
 source /etc/ssh-notify.conf
 
 # Config {
