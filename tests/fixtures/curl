@@ -1,0 +1,27 @@
+#!/bin/bash
+
+connect_timeout=
+max_time=
+
+while [ "$#" -gt 0 ]; do
+    case $1 in
+        --connect-timeout)
+            connect_timeout=${2:-}
+            shift 2
+            ;;
+        --max-time)
+            max_time=${2:-}
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+printf 'attempt\n' >>"$SSH_NOTIFY_TEST_LOG"
+[ "$connect_timeout" = "1" ] || printf 'bad-connect-timeout\n' >>"$SSH_NOTIFY_TEST_LOG"
+[ "$max_time" = "2" ] || printf 'bad-max-time\n' >>"$SSH_NOTIFY_TEST_LOG"
+
+sleep "${SSH_NOTIFY_FAKE_DELAY:-0}"
+exit "${SSH_NOTIFY_FAKE_STATUS:-0}"
