@@ -7,6 +7,7 @@ on:
     paths:
       - 'ssh-notify.sh'
       - 'ssh-notify.conf.template'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +27,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Quality gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          shellcheck ssh-notify.sh
+          ./ssh-notify.sh --self-test
+          git diff --check HEAD^ HEAD
+
       - name: Compute next version
         id: version
         shell: bash
@@ -39,15 +48,16 @@ jobs:
           else
             version="${latest_tag#v}"
             IFS='.' read -r major minor patch <<< "$version"
+            commit_messages="$(git log --format=%B "${latest_tag}..HEAD")"
 
-            # A functional change creates a new minor release by default.
-            # Explicit breaking-change markers create a major release.
-            commit_message="$(git log -1 --pretty=%B)"
-            if grep -Eqi '(^|[[:space:]])BREAKING CHANGE:|^[a-zA-Z]+(\([^)]*\))?!:|\[major\]' <<< "$commit_message"; then
+            # A functional change creates a minor release by default. Inspect
+            # all commits since the last tag so merge commits do not hide an
+            # explicit patch or breaking-change marker.
+            if grep -Eqi '(^|[[:space:]])BREAKING CHANGE:|^[a-zA-Z]+(\([^)]*\))?!:|\[major\]' <<< "$commit_messages"; then
               major=$((major + 1))
               minor=0
               patch=0
-            elif grep -Eqi '(^|[[:space:]])fix(\([^)]*\))?:|\[patch\]' <<< "$commit_message"; then
+            elif grep -Eqi '(^|[[:space:]])fix(\([^)]*\))?:|\[patch\]' <<< "$commit_messages"; then
               patch=$((patch + 1))
             else
               minor=$((minor + 1))

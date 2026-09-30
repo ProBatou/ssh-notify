@@ -1,3 +1,7 @@
-NTFY="URL"
-USERNAME=
-PASSWORD=
+# Base URL of your ntfy server (no topic suffix).
+NTFY="https://ntfy.example.com"
+TOPIC="SSH"
+
+# Leave both values empty when the endpoint allows anonymous publishing.
+USERNAME=""
+PASSWORD=""
