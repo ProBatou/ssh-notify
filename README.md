@@ -1,66 +1,103 @@
-# SSH Connection Notifier
+# ssh-notify
 
-Ce script Bash permet de recevoir une notification lorsqu'une session SSH est ouverte sur votre machine. Il est chargé par le shell depuis `/etc/profile.d/` et envoie la notification au service ntfy configuré.
+`ssh-notify` sends an [ntfy](https://ntfy.sh/) notification when an SSH login shell starts. It is a single Bash script loaded through `/etc/profile.d`, with one external configuration file.
 
-## Prérequis
+The script recognizes SSH sessions through `SSH_CONNECTION` or `SSH_CLIENT`, including sessions without a TTY. It exports `SSH_NOTIFY_SENT` after the first attempt so inherited shells do not send duplicates. Local shells—including code-server and Codex terminals—are ignored. Delivery is best-effort, with a one-second connection timeout and a two-second total timeout, so ntfy failures do not block login.
 
-Avant d'utiliser ce script, assurez-vous d'avoir installé les dépendances suivantes :
+## Requirements
 
-- `curl`: Utilisé pour envoyer les notifications HTTP.
+- Linux with Bash and the `/etc/profile.d` login-shell model
+- `curl`
+- An ntfy server and, when required, account credentials
+
+## Install
+
+Download or clone a release, then run as root:
+
+```bash
+cp ssh-notify.sh /etc/profile.d/ssh-notify.sh
+cp ssh-notify.conf.template /etc/ssh-notify.conf
+chmod 644 /etc/profile.d/ssh-notify.sh
+chmod 600 /etc/ssh-notify.conf
+```
+
+Edit `/etc/ssh-notify.conf`, then validate it:
+
+```bash
+/etc/profile.d/ssh-notify.sh --check-config
+```
+
+The next SSH login shell will attempt a notification. Existing SSH sessions that have already set `SSH_NOTIFY_SENT=1` will not send another.
 
 ## Configuration
 
-1. Copiez le fichier `ssh-notify.sh` dans le répertoire `/etc/profile.d/` :
+The configuration is trusted Bash syntax and supports four variables:
 
-   ```shell
-   cp ssh-notify.sh /etc/profile.d/
-   ```
+| Variable | Meaning |
+| --- | --- |
+| `NTFY` | Required ntfy base URL, such as `https://ntfy.example.com` |
+| `TOPIC` | Required topic name; defaults to `SSH` for compatibility |
+| `USERNAME` | Basic-auth username; optional when anonymous publishing is allowed |
+| `PASSWORD` | Basic-auth password; set together with `USERNAME` |
 
-2. Ouvrez le fichier de configuration `ssh-notify.conf.template` :
+Basic authentication:
 
-   ```shell
-   nano /etc/ssh-notify.conf.template
-   ```
+```bash
+NTFY="https://ntfy.example.com"
+TOPIC="SSH"
+USERNAME="example-user"
+PASSWORD="example-password"
+```
 
-3. Modifiez les valeurs des variables suivantes selon vos besoins :
+Anonymous publishing:
 
-   - `NTFY`: L'URL du service de notification en ligne.
-   - `USERNAME`: Votre nom d'utilisateur pour le service de notification.
-   - `PASSWORD`: Votre mot de passe pour le service de notification.
+```bash
+NTFY="https://ntfy.example.com"
+TOPIC="SSH"
+USERNAME=""
+PASSWORD=""
+```
 
-4. Enregistrez les modifications et enregistrez le fichier dans `/etc` :
+Keep the file owned by root and mode `600`; it may contain credentials. Existing configurations using `NTFY`, `USERNAME`, and `PASSWORD` remain valid because an omitted `TOPIC` defaults to `SSH`.
 
-   ```shell
-   cp ssh-notify.conf.template /etc/ssh-notify.conf
-   ```
+## Diagnostics
 
-## Utilisation
+```bash
+./ssh-notify.sh --help
+./ssh-notify.sh --check-config [CONFIG_FILE]
+./ssh-notify.sh --self-test
+```
 
-Le script est chargé par `/etc/profile.d/` lors de l'ouverture d'un shell de profil. Une notification est envoyée uniquement si `sshd` a fourni `SSH_CONNECTION` ou `SSH_CLIENT`. Les shells locaux, y compris les terminaux code-server/Codex, sont donc ignorés.
+`--check-config` loads and validates the configuration without sending a notification or printing secrets. `--self-test` uses internal fakes: it never reads `/etc/ssh-notify.conf` and never contacts a network service.
 
-Une variable d'environnement exportée marque la session après la première tentative. Les sous-shells de cette session SSH l'héritent et ne génèrent pas de notifications en double. Les sessions SSH sans TTY sont prises en charge.
+If notifications do not arrive, validate the configuration, confirm `curl` is installed, verify the ntfy URL/topic and publish permissions, and check that `SSH_CONNECTION` or `SSH_CLIENT` exists in the login shell. Missing configuration, invalid configuration, and delivery errors are deliberately quiet during login; use `--check-config` for details.
 
-L'envoi est informatif et fonctionne en mode *best effort*. Les délais de connexion et d'exécution de `curl` sont limités ; une configuration absente, un service ntfy indisponible ou un échec HTTP ne bloque pas et ne fait pas échouer l'ouverture du shell SSH. La configuration et les identifiants restent exclusivement dans `/etc/ssh-notify.conf`.
+## Update and uninstall
 
-## Releases automatiques
+To update, replace `/etc/profile.d/ssh-notify.sh` with the script from the latest GitHub Release, preserve `/etc/ssh-notify.conf`, and run `--check-config` and `--self-test`.
 
-Une GitHub Release est automatiquement créée lorsqu'une modification fonctionnelle est poussée sur `main`, c'est-à-dire lorsqu'un des fichiers suivants change :
+To uninstall:
 
-- `ssh-notify.sh`
-- `ssh-notify.conf.template`
+```bash
+rm /etc/profile.d/ssh-notify.sh
+# Optionally remove saved settings and credentials:
+rm /etc/ssh-notify.conf
+```
 
-Le workflow utilise un versioning sémantique :
+## Releases and contributions
 
-- première release : `v1.0.0` ;
-- modification fonctionnelle normale : incrément de la version mineure (`v1.1.0`, `v1.2.0`, etc.) ;
-- commit contenant `fix:` ou `[patch]` : incrément de patch ;
-- commit indiquant un breaking change (`BREAKING CHANGE:`, `type!:`, ou `[major]`) : incrément de version majeure.
+Functional changes on `main` automatically pass ShellCheck, the built-in self-test, and whitespace checks before a SemVer GitHub Release is created. Releases attach `ssh-notify.sh` and `ssh-notify.conf.template`; GitHub also provides source archives. Documentation-only changes do not create releases. The latest release is suitable for consumers such as DebBuilder.
 
-Les notes de version sont générées automatiquement par GitHub et les fichiers `ssh-notify.sh` et `ssh-notify.conf.template` sont joints à la release.
+The default release increment is minor. Commit messages containing `fix:` or `[patch]` select a patch increment; `BREAKING CHANGE:`, a Conventional Commit `!`, or `[major]` selects a major increment. Contributions should stay focused, keep the utility small, and run the same three checks locally:
 
-Le workflow peut également être lancé manuellement depuis l'onglet **Actions** de GitHub.
+```bash
+shellcheck ssh-notify.sh
+./ssh-notify.sh --self-test
+git diff --check
+```
 
-## Remarques
+## Security and license
 
-- Une notification ne pourra être envoyée que si la machine peut joindre le service ntfy, sans que cela conditionne l'accès SSH.
-- Veillez à garder votre fichier de configuration sécurisé, car il contient des informations d'identification sensibles.
+The configuration is sourced as Bash, so only root should be able to edit it. Use HTTPS for remote ntfy servers and a narrowly scoped account when authentication is required. Notification text includes the login user, host, source IP, and time.
+
+Licensed under the [Apache License 2.0](LICENSE).
