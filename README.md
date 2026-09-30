@@ -1,6 +1,6 @@
 # SSH Connection Notifier
 
-Ce script Bash vous permet de recevoir une notification à chaque fois qu'une connexion SSH est établie sur votre machine. La notification est envoyée à un service en ligne pour une gestion facile.
+Ce script Bash permet de recevoir une notification lorsqu'une session SSH est ouverte sur votre machine. Il est chargé par le shell depuis `/etc/profile.d/` et envoie la notification au service ntfy configuré.
 
 ## Prérequis
 
@@ -36,7 +36,11 @@ Avant d'utiliser ce script, assurez-vous d'avoir installé les dépendances suiv
 
 ## Utilisation
 
-Le script sera automatiquement exécuté chaque fois qu'un utilisateur établira une connexion SSH sur la machine. Les notifications seront envoyées en fonction de la configuration définie dans le fichier `ssh-notify.conf`.
+Le script est chargé par `/etc/profile.d/` lors de l'ouverture d'un shell de profil. Une notification est envoyée uniquement si `sshd` a fourni `SSH_CONNECTION` ou `SSH_CLIENT`. Les shells locaux, y compris les terminaux code-server/Codex, sont donc ignorés.
+
+Une variable d'environnement exportée marque la session après la première tentative. Les sous-shells de cette session SSH l'héritent et ne génèrent pas de notifications en double. Les sessions SSH sans TTY sont prises en charge.
+
+L'envoi est informatif et fonctionne en mode *best effort*. Les délais de connexion et d'exécution de `curl` sont limités ; une configuration absente, un service ntfy indisponible ou un échec HTTP ne bloque pas et ne fait pas échouer l'ouverture du shell SSH. La configuration et les identifiants restent exclusivement dans `/etc/ssh-notify.conf`.
 
 ## Releases automatiques
 
@@ -58,5 +62,5 @@ Le workflow peut également être lancé manuellement depuis l'onglet **Actions*
 
 ## Remarques
 
-- Assurez-vous que votre machine a accès à Internet pour pouvoir envoyer les notifications.
+- Une notification ne pourra être envoyée que si la machine peut joindre le service ntfy, sans que cela conditionne l'accès SSH.
 - Veillez à garder votre fichier de configuration sécurisé, car il contient des informations d'identification sensibles.
