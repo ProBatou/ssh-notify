@@ -175,11 +175,12 @@ ssh_notify_self_test() {
 
     unset SSH_CLIENT SSH_CONNECTION SSH_TTY SSH_NOTIFY_SENT
     attempts=0
-    if bash -c 'source "$1"; reached=1; [[ $reached -eq 1 ]]' \
+    if bash -c 'source "$1"; reached=1; [[ $reached -eq 1 ]] &&
+        [[ -z $(compgen -A function ssh_notify_) ]]' \
         bash "${BASH_SOURCE[0]}"; then
-        ssh_notify_test_case 'sourcing does not exit the parent shell' 0 0
+        ssh_notify_test_case 'sourcing continues with a clean namespace' 0 0
     else
-        ssh_notify_test_case 'sourcing does not exit the parent shell' 0 1
+        ssh_notify_test_case 'sourcing continues with a clean namespace' 0 1
     fi
 
     printf '\n%d passed, %d failed\n' "$passed" "$failed"
@@ -231,4 +232,8 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     exit $?
 else
     ssh_notify_handle_login
+    unset -f ssh_notify_validate_config ssh_notify_load_config \
+        ssh_notify_curl ssh_notify_send ssh_notify_handle_login \
+        ssh_notify_check_config ssh_notify_self_test ssh_notify_usage \
+        ssh_notify_main 2>/dev/null || :
 fi
