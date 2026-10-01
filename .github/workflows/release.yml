@@ -7,6 +7,8 @@ on:
     paths:
       - 'ssh-notify.sh'
       - 'ssh-notify.conf.template'
+      - 'ssh-notify.sudoers'
+      - 'tests/**'
       - '.github/workflows/release.yml'
   workflow_dispatch:
 
@@ -31,8 +33,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          shellcheck ssh-notify.sh
+          shellcheck ssh-notify.sh tests/security-test.sh
           ./ssh-notify.sh --self-test
+          sudo ./tests/security-test.sh
           git diff --check HEAD^ HEAD
 
       - name: Compute next version
@@ -83,4 +86,5 @@ jobs:
             --title "$VERSION" \
             --generate-notes \
             ssh-notify.sh \
-            ssh-notify.conf.template
+            ssh-notify.conf.template \
+            ssh-notify.sudoers

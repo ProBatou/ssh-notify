@@ -1,3 +1,5 @@
+# Install as root:root mode 600; only the privileged --send action reads it.
+
 # Base URL of your ntfy server (no topic suffix).
 NTFY="https://ntfy.example.com"
 TOPIC="SSH"
